@@ -33,23 +33,25 @@ func authValidate(input string) error {
 	return nil
 }
 
+func auth(v *vos.OS, d interface{}) (*vos.Session, error) {
+	ds := d.([2]string)
+	user := ds[0]
+	pass := ds[1]
+	if user == "root" && pass == "pass" {
+		s := v.NewSession()
+		s.In = os.Stdin
+		s.Out = os.Stdout
+		s.User = user
+		return s, nil
+	}
+	return nil, ErrAuthFail
+}
+
 func main() {
 	v := vos.New()
-	v.Auth = func(d interface{}) (*vos.Session, error) {
-		ds := d.([2]string)
-		user := ds[0]
-		pass := ds[1]
-		if user == "root" && pass == "pass" {
-			s := v.NewSession()
-			s.In = os.Stdin
-			s.Out = os.Stdout
-			s.User = user
-			return s, nil
-		}
-		return nil, ErrAuthFail
+	if e := v.Run(); e != nil {
+		panic(e)
 	}
-
-	go v.Run()
 
 	var s *vos.Session
 	num := 3
@@ -62,7 +64,7 @@ func main() {
 		if p, err = promptPass.Run(); err != nil {
 			panic(err)
 		}
-		if s, err = v.Auth([2]string{u, p}); err == nil {
+		if s, err = auth(v, [2]string{u, p}); err == nil {
 			break
 		} else if err != ErrAuthFail {
 			panic(err)

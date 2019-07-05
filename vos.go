@@ -12,13 +12,10 @@ const (
 
 // OS Virtual Operating System
 type OS struct {
-	// OS Core
-	Fs          afero.Fs
-	SyscallList []string
-	Init        func()
-
-	// Login
-	Auth func(interface{}) (*Session, error)
+	// Init & OS Core
+	Init        func() (afero.Fs, []string, error)
+	fs          afero.Fs
+	syscallList []string
 
 	// Controller
 	api     chan Syscall
@@ -41,10 +38,9 @@ type sess struct {
 // New VOS
 func New() *OS {
 	v := &OS{
-		Fs:          nil,
-		SyscallList: []string{},
-		Init:        nil,
-		Auth:        nil,
+		Init: nil,
+		//fs:          nil,
+		//syscallList: []string{},
 
 		api:     make(chan Syscall),
 		stop:    make(chan interface{}),
@@ -55,27 +51,39 @@ func New() *OS {
 }
 
 // Run VOS
-func (v *OS) Run() {
+func (v *OS) Run() error {
+	// Init
 	if v.Init == nil {
 		v.Init = v.defaultInit
 	}
-
-	for {
-		select {
-		case <-v.stop:
-			return
-		case s := <-v.sess:
-			if s.s == nil {
-				delete(v.session, s.uuid)
-				s.s.os = nil
-			} else {
-				UUID := uuid.NewV4().String()
-				v.session[UUID] = s.s
-				s.s.uuid = UUID
-			}
-		}
-
+	f, s, e := v.Init()
+	if e != nil {
+		return e
+	} else {
+		v.fs = f
+		v.syscallList = s
 	}
+
+	go func() {
+		for {
+			select {
+			case <-v.stop:
+				return
+			case s := <-v.sess:
+				// TODO: 应当触发一个系统事件
+				if s.s == nil {
+					delete(v.session, s.uuid)
+					s.s.os = nil
+				} else {
+					UUID := uuid.NewV4().String()
+					v.session[UUID] = s.s
+					s.s.uuid = UUID
+				}
+			}
+
+		}
+	}()
+	return nil
 }
 
 // Syscall for Handler

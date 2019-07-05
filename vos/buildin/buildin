@@ -1,0 +1,6 @@
+{
+    "script": {
+        "lua": "https://github.com/yuin/gopher-lua",
+        "qlang": "https://github.com/qiniu/qlang"
+    }
+}

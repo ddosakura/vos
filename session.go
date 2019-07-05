@@ -1,10 +1,13 @@
 package vos
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
+	"os"
+	"path"
 	"strconv"
 	"strings"
 	"text/template"
@@ -15,25 +18,30 @@ import (
 
 // Session of VOS
 type Session struct {
+	DebugMode bool
+	Logger    *log.Logger
+
 	os   *OS
+	user string
 	pwd  string
 	uuid string
 
 	PromptTpl   *template.Template
 	Prompt      string
 	HistoryFile string
-	LogFile     string
 
-	In   io.ReadCloser
-	Out  io.WriteCloser
-	User string
+	In  io.ReadCloser
+	Out io.WriteCloser
 }
 
 // NewSession for VOS
-func (v *OS) NewSession() *Session {
+func (v *OS) NewSession(user string) *Session {
 	s := &Session{
-		os:  v,
-		pwd: "~",
+		DebugMode: v.DebugMode,
+		Logger:    log.New(os.Stderr, "[VOS-Session] ", log.LstdFlags),
+		os:        v,
+		user:      user,
+		pwd:       home(user),
 	}
 	v.sess <- sess{s: s}
 	s.PromptTpl = defaultPromptTpl
@@ -41,8 +49,7 @@ func (v *OS) NewSession() *Session {
 	for s.uuid == "" {
 		time.Sleep(time.Millisecond * 100)
 	}
-	s.HistoryFile = "./" + s.uuid + "_history"
-	s.LogFile = "./" + s.uuid + ".log"
+	s.HistoryFile = "./" + user + "_history"
 	return s
 }
 
@@ -63,11 +70,12 @@ func (s *Session) Exit() {
 
 // Run Session
 func (s *Session) Run() error {
+	s.Info("Session Initializing ...")
 	// https://github.com/chzyer/readline/blob/master/example/readline-demo/readline-demo.go
 	l, err := readline.NewEx(&readline.Config{
 		Prompt:          s.Prompt,
 		HistoryFile:     s.HistoryFile,
-		AutoComplete:    completer,
+		AutoComplete:    s.autoCompleter(),
 		InterruptPrompt: "^C",
 		EOFPrompt:       "exit",
 
@@ -79,10 +87,10 @@ func (s *Session) Run() error {
 	}
 	defer l.Close()
 
+	s.Info("Session Key-Ring Initializing ...")
 	setPasswordCfg := KR(l)
 
 	var lastError error
-	// TODO: log.SetOutput(...)
 	for {
 		if s.PromptTpl != nil {
 			fmt.Fprintln(s.Out, s.prompt(lastError))
@@ -100,6 +108,62 @@ func (s *Session) Run() error {
 
 		line = strings.TrimSpace(line)
 		switch {
+		case strings.HasPrefix(line, "exit"):
+			// TODO: exit code ?
+			goto exit
+		case strings.HasPrefix(line, "echo"):
+			line := strings.TrimSpace(line[4:])
+			_, lastError = s.println(line)
+		case strings.HasPrefix(line, "pwd"):
+			if line == "pwd" {
+				_, lastError = s.println(s.pwd)
+			} else {
+				_, lastError = s.println("pwd: too many arguments")
+				if lastError == nil {
+					lastError = errors.New("C:1")
+				}
+			}
+		case strings.HasPrefix(line, "cd"):
+			p0 := strings.TrimSpace(line[2:])
+			p := p0
+			if p == "" {
+				s.pwd = home(s.user)
+				continue
+			}
+			if p[0] == '~' {
+				p = strings.Replace(p, "~", home(s.user), 1)
+			} else if p[0] != '/' {
+				p = path.Join(s.pwd, p)
+			}
+			fs, _ := s.os.FindFile(p)
+			if fs == nil {
+				_, lastError = s.println("cd: 没有那个文件或目录: %s", p0)
+				if lastError == nil {
+					lastError = errors.New("C:1")
+				}
+				continue
+			}
+			s.pwd = p
+			_, lastError = s.println("")
+		case strings.HasPrefix(line, "ls"):
+			c := new(LsConfig)
+			c.Color = true
+			// TODO: more config & ls other path
+			if strings.TrimSpace(line[2:]) == "-a" {
+				c.A = true
+			}
+			ls, err := s.os.Ls(s.pwd, c)
+			if err != nil {
+				lastError = err
+				continue
+			}
+			// TODO: fmt
+			res := ""
+			for _, o := range ls {
+				res += o + "	"
+			}
+			_, lastError = s.println(res)
+
 		case strings.HasPrefix(line, "mode "):
 			switch line[5:] {
 			case "vi":
@@ -122,7 +186,7 @@ func (s *Session) Run() error {
 			}
 			println("you enter:", strconv.Quote(string(pswd)))
 		case line == "help":
-			usage(l.Stderr())
+			s.usage(l.Stderr())
 		case line == "setpassword":
 			pswd, err := l.ReadPasswordWithConfig(setPasswordCfg)
 			if err == nil {
@@ -130,38 +194,38 @@ func (s *Session) Run() error {
 			}
 		case strings.HasPrefix(line, "setprompt"):
 			if len(line) <= 10 {
-				log.Println("setprompt <prompt>")
+				s.Info("setprompt <prompt>")
 				break
 			}
 			l.SetPrompt(line[10:])
 		case strings.HasPrefix(line, "say"):
 			line := strings.TrimSpace(line[3:])
 			if len(line) == 0 {
-				log.Println("say what?")
+				s.Info("say what?")
 				break
 			}
 			go func() {
 				for range time.Tick(time.Second) {
-					log.Println(line)
+					s.Info(line)
 				}
 			}()
 		case line == "bye":
 			goto exit
 		case line == "sleep":
-			log.Println("sleep 4 second")
+			s.Info("sleep 4 second")
 			time.Sleep(4 * time.Second)
 		case line == "":
 		default:
-			log.Println("you said:", strconv.Quote(line))
+			s.Info("you said:", strconv.Quote(line))
 		}
 	}
 exit:
 	return nil
 }
 
-func usage(w io.Writer) {
+func (s *Session) usage(w io.Writer) {
 	io.WriteString(w, "commands:\n")
-	io.WriteString(w, completer.Tree("    "))
+	io.WriteString(w, s.autoCompleter().(*readline.PrefixCompleter).Tree("    "))
 }
 
 func listFiles(path string) func(string) []string {
@@ -175,37 +239,60 @@ func listFiles(path string) func(string) []string {
 	}
 }
 
-var completer = readline.NewPrefixCompleter(
-	readline.PcItem("mode",
-		readline.PcItem("vi"),
-		readline.PcItem("emacs"),
-	),
-	readline.PcItem("login"),
-	readline.PcItem("say",
-		readline.PcItemDynamic(listFiles("./"),
-			readline.PcItem("with",
-				readline.PcItem("following"),
-				readline.PcItem("items"),
+func (s *Session) autoCompleter() readline.AutoCompleter {
+	return readline.NewPrefixCompleter(
+		readline.PcItem("echo"),
+		readline.PcItem("exit"),
+		//readline.PcItem("shutdown"),
+		readline.PcItem("pwd"),
+		readline.PcItem("cd", readline.PcItemDynamic(s.pathHelper)),
+		readline.PcItem("ls", readline.PcItemDynamic(s.pathHelper)),
+		// TODO: commands
+		readline.PcItem("df", readline.PcItemDynamic(s.pathHelper)),
+
+		readline.PcItem("touch", readline.PcItemDynamic(s.pathHelper)),
+		readline.PcItem("mkdir", readline.PcItemDynamic(s.pathHelper)),
+		readline.PcItem("rm", readline.PcItemDynamic(s.pathHelper)),
+		readline.PcItem("cat", readline.PcItemDynamic(s.pathHelper)),
+		readline.PcItem("tail", readline.PcItemDynamic(s.pathHelper)),
+
+		readline.PcItem("mount", readline.PcItemDynamic(s.pathHelper)),
+		readline.PcItem("umount", readline.PcItemDynamic(s.pathHelper)),
+
+		// TODO: 环境变量
+		readline.PcItem("export", readline.PcItemDynamic(s.pathHelper)),
+
+		readline.PcItem("mode",
+			readline.PcItem("vi"),
+			readline.PcItem("emacs"),
+		),
+		readline.PcItem("login"),
+		readline.PcItem("say",
+			readline.PcItemDynamic(listFiles("./"),
+				readline.PcItem("with",
+					readline.PcItem("following"),
+					readline.PcItem("items"),
+				),
 			),
+			readline.PcItem("hello"),
+			readline.PcItem("bye"),
 		),
-		readline.PcItem("hello"),
+		readline.PcItem("setprompt"),
+		readline.PcItem("setpassword"),
 		readline.PcItem("bye"),
-	),
-	readline.PcItem("setprompt"),
-	readline.PcItem("setpassword"),
-	readline.PcItem("bye"),
-	readline.PcItem("help"),
-	readline.PcItem("go",
-		readline.PcItem("build", readline.PcItem("-o"), readline.PcItem("-v")),
-		readline.PcItem("install",
-			readline.PcItem("-v"),
-			readline.PcItem("-vv"),
-			readline.PcItem("-vvv"),
+		readline.PcItem("help"),
+		readline.PcItem("go",
+			readline.PcItem("build", readline.PcItem("-o"), readline.PcItem("-v")),
+			readline.PcItem("install",
+				readline.PcItem("-v"),
+				readline.PcItem("-vv"),
+				readline.PcItem("-vvv"),
+			),
+			readline.PcItem("test"),
 		),
-		readline.PcItem("test"),
-	),
-	readline.PcItem("sleep"),
-)
+		readline.PcItem("sleep"),
+	)
+}
 
 func filterInput(r rune) (rune, bool) {
 	switch r {

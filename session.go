@@ -18,8 +18,8 @@ import (
 
 // Session of VOS
 type Session struct {
-	DebugMode bool
-	Logger    *log.Logger
+	LogMode LogMode
+	Logger  *log.Logger
 
 	os   *OS
 	user string
@@ -37,11 +37,11 @@ type Session struct {
 // NewSession for VOS
 func (v *OS) NewSession(user string) *Session {
 	s := &Session{
-		DebugMode: v.DebugMode,
-		Logger:    log.New(os.Stderr, "[VOS-Session] ", log.LstdFlags),
-		os:        v,
-		user:      user,
-		pwd:       home(user),
+		LogMode: v.LogMode,
+		Logger:  log.New(os.Stderr, "[VOS-Session] ", log.LstdFlags),
+		os:      v,
+		user:    user,
+		pwd:     home(user),
 	}
 	v.sess <- sess{s: s}
 	s.PromptTpl = defaultPromptTpl
@@ -114,6 +114,12 @@ func (s *Session) Run() error {
 		case strings.HasPrefix(line, "echo"):
 			line := strings.TrimSpace(line[4:])
 			_, lastError = s.println(line)
+		case strings.HasPrefix(line, "uname"):
+			if strings.TrimSpace(line[5:]) == "-a" {
+				_, lastError = s.println("VOS %s %s %s %s DDoSakura/VOS", s.os.Hostname(), s.os.Version(), s.os.BuildTime(), BitIf())
+			} else {
+				_, lastError = s.println("VOS")
+			}
 		case strings.HasPrefix(line, "pwd"):
 			if line == "pwd" {
 				_, lastError = s.println(s.pwd)
@@ -243,10 +249,16 @@ func (s *Session) autoCompleter() readline.AutoCompleter {
 	return readline.NewPrefixCompleter(
 		readline.PcItem("echo"),
 		readline.PcItem("exit"),
-		//readline.PcItem("shutdown"),
+		readline.PcItem("uname", readline.PcItem("-a")),
+		// TODO: readline.PcItem("shutdown"),
 		readline.PcItem("pwd"),
 		readline.PcItem("cd", readline.PcItemDynamic(s.pathHelper)),
-		readline.PcItem("ls", readline.PcItemDynamic(s.pathHelper)),
+		readline.PcItem("ls",
+			readline.PcItem("-a",
+				readline.PcItemDynamic(s.pathHelper),
+			),
+			readline.PcItemDynamic(s.pathHelper),
+		),
 		// TODO: commands
 		readline.PcItem("df", readline.PcItemDynamic(s.pathHelper)),
 

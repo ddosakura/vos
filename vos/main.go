@@ -50,7 +50,7 @@ func auth(v *vos.OS, d interface{}) (*vos.Session, error) {
 func main() {
 	v := vos.New()
 	if len(os.Args) > 1 && os.Args[1] == "-d" {
-		v.DebugMode = true
+		v.LogMode = vos.LmD
 	}
 	v.Init = func(api *vos.OS) ([]string, error) {
 		// 挂载文件系统

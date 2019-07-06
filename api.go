@@ -2,6 +2,7 @@ package vos
 
 import (
 	"os"
+	"time"
 
 	"github.com/spf13/afero"
 )
@@ -64,6 +65,17 @@ func (v *OS) Hostname() string {
 		return "VOS"
 	}
 	return string(bs)
+}
+
+// Version of VOS
+func (v *OS) Version() string {
+	return Version + "-" + v.Issuer
+}
+
+// BuildTime of VOS
+func (v *OS) BuildTime() time.Time {
+	// TODO: 写上构建时间
+	return time.Now()
 }
 
 // LsConfig for `ls`

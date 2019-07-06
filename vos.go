@@ -10,15 +10,11 @@ import (
 	"github.com/spf13/afero"
 )
 
-// raw
-const (
-	Version = "v0.0.1"
-)
-
 // OS Virtual Operating System
 type OS struct {
-	DebugMode bool
-	Logger    *log.Logger
+	Issuer  string
+	LogMode LogMode
+	Logger  *log.Logger
 
 	// Init & OS Core
 	Init        func(*OS) ([]string, error)
@@ -47,8 +43,9 @@ type sess struct {
 // New VOS
 func New() *OS {
 	v := &OS{
-		DebugMode: false,
-		Logger:    log.New(os.Stderr, "[VOS] ", log.LstdFlags),
+		Issuer:  "core",
+		LogMode: LmI,
+		Logger:  log.New(os.Stderr, "[VOS] ", log.LstdFlags),
 
 		Init:   nil,
 		fs:     make(map[string]*Fs),

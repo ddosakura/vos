@@ -6,3 +6,11 @@ func home(user string) string {
 	}
 	return "/home/" + user
 }
+
+// BitIf x86_64/x86
+func BitIf() string {
+	if 32<<(^uint(0)>>63) == 64 {
+		return "x86_64"
+	}
+	return "x86"
+}

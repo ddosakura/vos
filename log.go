@@ -1,5 +1,17 @@
 package vos
 
+// LogMode for vos/session
+type LogMode uint8
+
+// LogMode
+const (
+	LmN LogMode = iota // No Log
+	LmE
+	LmW
+	LmI
+	LmD
+)
+
 // --- VOS ---
 
 // Log Action
@@ -12,24 +24,30 @@ func (v *OS) Log(prompt string, color func(a ...interface{}) string, vs ...inter
 
 // Debug Log
 func (v *OS) Debug(vs ...interface{}) {
-	if v.DebugMode {
+	if v.LogMode == LmD {
 		v.Log("D", Green, vs...)
 	}
 }
 
 // Info Log
 func (v *OS) Info(vs ...interface{}) {
-	v.Log("I", Blue, vs...)
+	if v.LogMode >= LmI {
+		v.Log("I", Blue, vs...)
+	}
 }
 
 // Warn Log
 func (v *OS) Warn(vs ...interface{}) {
-	v.Log("W", Yellow, vs...)
+	if v.LogMode >= LmW {
+		v.Log("W", Yellow, vs...)
+	}
 }
 
 // Error Log
 func (v *OS) Error(e error) {
-	v.Log("E", Red, e)
+	if v.LogMode >= LmE {
+		v.Log("E", Red, e)
+	}
 	panic(e)
 }
 
@@ -45,23 +63,29 @@ func (v *Session) Log(prompt string, color func(a ...interface{}) string, vs ...
 
 // Debug Log
 func (v *Session) Debug(vs ...interface{}) {
-	if v.DebugMode {
+	if v.LogMode == LmD {
 		v.Log("D", Green, vs...)
 	}
 }
 
 // Info Log
 func (v *Session) Info(vs ...interface{}) {
-	v.Log("I", Blue, vs...)
+	if v.LogMode >= LmI {
+		v.Log("I", Blue, vs...)
+	}
 }
 
 // Warn Log
 func (v *Session) Warn(vs ...interface{}) {
-	v.Log("W", Yellow, vs...)
+	if v.LogMode >= LmW {
+		v.Log("W", Yellow, vs...)
+	}
 }
 
 // Error Log
 func (v *Session) Error(e error) {
-	v.Log("E", Red, e)
+	if v.LogMode >= LmE {
+		v.Log("E", Red, e)
+	}
 	panic(e)
 }

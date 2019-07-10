@@ -1,0 +1,6 @@
++ bugs
+    ☐ ls 的修复（ReadDir 读不到 Mounted）
++ scripts
+    ☐  "lua": "https://github.com/yuin/gopher-lua"
+    ✘ "qlang": "https://github.com/qiniu/qlang" @cancelled(19-07-10 21:53)
+    ✘ "js": "https://github.com/robertkrimen/otto" @cancelled(19-07-10 21:55)

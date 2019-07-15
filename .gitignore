@@ -1,0 +1,6 @@
+dist
+*.pb.go
+
+*_history
+*.log
+*.sock

@@ -1,0 +1,23 @@
+syntax = "proto3";
+package auth;
+
+// 认证方式
+enum Type {
+  Password = 0;  // user+pass
+  PublicKey = 1; // key
+}
+
+// 认证协议
+message Auth {
+  int64 ver = 1;   // 协议版本
+  Type type = 2;   // 认证方式
+  string user = 3; // 用户名
+  string pass = 4; // 密码
+  string key = 5;  // 公钥
+}
+
+message Result {
+  int64 ver = 1;      // 协议版本
+  bool pass = 2;      // 是否通过
+  string welcome = 3; // 欢迎信息
+}

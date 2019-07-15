@@ -47,6 +47,7 @@ func rlHandlerBuilder(s *Session) func(l *readline.Instance) {
 				break
 			}
 
+			// TODO: 解析 line，并传入 Syscall
 			line = strings.TrimSpace(line)
 			switch {
 			case strings.HasPrefix(line, "exit"):

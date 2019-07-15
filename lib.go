@@ -67,7 +67,7 @@ func (b *Base) Run(l net.Listener) {
 			for num > 0 {
 				r := new(auth.Auth)
 				if err := pbqp.Read(conn, r); err != nil {
-					b.Warn(err)
+					b.Error(err)
 				}
 				res := new(auth.Result)
 				res.Pass = false
@@ -86,7 +86,7 @@ func (b *Base) Run(l net.Listener) {
 					// TODO: if success, then user = "xxx"
 				}
 				if err := pbqp.Write(conn, res); err != nil {
-					b.Warn(err)
+					b.Error(err)
 				}
 				if res.Pass {
 					break

@@ -6,4 +6,6 @@ import "errors"
 var (
 	ErrSyscallError = errors.New("Syscall Error")
 	ErrAuthProtocol = errors.New("Auth Protocol Error")
+
+	ErrKeyError = errors.New("Key Error")
 )

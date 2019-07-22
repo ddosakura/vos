@@ -22,3 +22,5 @@
     + [ ] script
 + [ ] vos/fs
 + [ ] vos/rt
+
++ [ ] 时间同步检查

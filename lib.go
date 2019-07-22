@@ -2,7 +2,9 @@ package vos
 
 import (
 	"fmt"
+	"log"
 	"net"
+	"os"
 	"sync"
 
 	"github.com/chzyer/readline"
@@ -21,12 +23,13 @@ type Ext interface {
 // Base VOS
 type Base struct {
 	*glog.Log
-
 	exts []Ext
 
 	listener net.Listener
 	sessMap  map[string]*Session
 	sessLock *sync.RWMutex
+
+	Auth func(*auth.Auth, *auth.Result) (string, error)
 
 	// TODO: 虚拟进程
 }
@@ -35,11 +38,29 @@ type Base struct {
 func New(exts ...Ext) *Base {
 	v := &Base{
 		Log:      glog.New(),
+		exts:     exts,
 		sessMap:  make(map[string]*Session),
 		sessLock: new(sync.RWMutex),
-		exts:     exts,
+		Auth:     defaultAuth,
 	}
+	v.Log.Logger = log.New(os.Stderr, "[VOS] ", log.LstdFlags)
 	return v
+}
+
+func defaultAuth(req *auth.Auth, res *auth.Result) (string, error) {
+	switch req.Type {
+	case auth.Type_Password:
+		if req.User == "root" && req.Pass == "123456" {
+			res.Pass = true
+			res.Welcome = `Success`
+			return req.User, nil
+		}
+	case auth.Type_PublicKey:
+		return "", ErrAuthProtocol
+	default:
+		return "", ErrAuthProtocol
+	}
+	return "", nil
 }
 
 // Run Base-VOS
@@ -71,19 +92,10 @@ func (b *Base) Run(l net.Listener) {
 				}
 				res := new(auth.Result)
 				res.Pass = false
-				switch r.Type {
-				case auth.Type_Password:
-					// TODO: more users
-					if r.User == "root" && r.Pass == "123456" {
-						res.Pass = true
-						// TODO: welcome
-						res.Welcome = `Success`
-						user = r.User
-					}
-				case auth.Type_PublicKey:
-					// TODO:
-					b.Warn(ErrAuthProtocol)
-					// TODO: if success, then user = "xxx"
+				if u, err := b.Auth(r, res); err != nil {
+					b.Warn(err)
+				} else if res.Pass {
+					user = u
 				}
 				if err := pbqp.Write(conn, res); err != nil {
 					b.Error(err)
@@ -98,6 +110,7 @@ func (b *Base) Run(l net.Listener) {
 				return
 			}
 
+			// TODO: SMUX 多路复用
 			s := b.NewSession(func(s *Session) {
 				s.user = user
 				s.uuid = uuid.NewV4().String()

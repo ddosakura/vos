@@ -5,7 +5,11 @@
     ✘ "qlang": "https://github.com/qiniu/qlang" @cancelled(19-07-10 21:53)
     ✘ "js": "https://github.com/robertkrimen/otto" @cancelled(19-07-10 21:55)
 
++ unix(sock)
+    ☐ windows default
+    ☐ remove *.sock when exit
 + 认证方式
     ☐ 密码
     ☐ 公钥
 ☐ vterm log & error handler
+

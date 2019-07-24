@@ -14,12 +14,16 @@ type Session struct {
 	user        string
 	uuid        string
 	historyFile string
+
+	pwd string
 }
 
 // NewSession for Base-VOS
 func (b *Base) NewSession(fn func(*Session)) *Session {
 	s := &Session{
 		os: b,
+
+		pwd: "~",
 	}
 	fn(s)
 	s.Log = &glog.Log{

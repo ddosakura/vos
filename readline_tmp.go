@@ -190,7 +190,7 @@ func (s *Session) autoCompleter() readline.AutoCompleter {
 		readline.PcItem("echo"),
 		readline.PcItem("exit"),
 		readline.PcItem("uname", readline.PcItem("-a")),
-		// TODO: readline.PcItem("shutdown"),
+		// readline.PcItem("shutdown"),
 		readline.PcItem("pwd"),
 		//readline.PcItem("cd", readline.PcItemDynamic(s.pathHelper)),
 		//readline.PcItem("ls",
@@ -199,7 +199,7 @@ func (s *Session) autoCompleter() readline.AutoCompleter {
 		//	),
 		//	readline.PcItemDynamic(s.pathHelper),
 		//),
-		//// TODO: commands
+		//// commands
 		//readline.PcItem("df", readline.PcItemDynamic(s.pathHelper)),
 
 		//readline.PcItem("touch", readline.PcItemDynamic(s.pathHelper)),
@@ -211,7 +211,7 @@ func (s *Session) autoCompleter() readline.AutoCompleter {
 		//readline.PcItem("mount", readline.PcItemDynamic(s.pathHelper)),
 		//readline.PcItem("umount", readline.PcItemDynamic(s.pathHelper)),
 
-		// TODO: 环境变量
+		// 环境变量
 		//readline.PcItem("export", readline.PcItemDynamic(s.pathHelper)),
 
 		readline.PcItem("mode",

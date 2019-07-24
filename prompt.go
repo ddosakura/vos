@@ -30,7 +30,7 @@ func (s *Session) prompt(err error) string {
 	}{
 		User:  glog.Blue(s.user),
 		Host:  glog.Green(s.os.Syscall(SignHostname)),
-		PWD:   glog.Yellow("~"),              // TODO: PWD
+		PWD:   glog.Yellow(s.pwd),
 		Time:  time.Now().Format("15:04:05"), // 2006-01-02 15:04:05
 		Error: glog.Red(errText),
 	})

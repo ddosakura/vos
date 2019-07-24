@@ -25,7 +25,6 @@ type Base struct {
 	*glog.Log
 	exts []Ext
 
-	listener net.Listener
 	sessMap  map[string]*Session
 	sessLock *sync.RWMutex
 
@@ -63,68 +62,62 @@ func defaultAuth(req *auth.Auth, res *auth.Result) (string, error) {
 	return "", nil
 }
 
-// Run Base-VOS
-func (b *Base) Run(l net.Listener) {
+// Start Base-VOS
+func (b *Base) Start() error {
 	b.Info("OS Initializing ...")
 	for _, m := range b.exts {
 		if err := m.Init(b); err != nil {
-			b.Error(err)
+			return err
 		}
 	}
 	b.Info("OS initialization completed!")
-	b.listener = l
-	for {
-		conn, err := b.listener.Accept()
-		go func() {
-			defer glog.StopPanic()
-			if err != nil {
-				b.Error(err)
-			}
-			num, ok := b.Syscall(SignLoginRetryTimes).(int)
-			if !ok {
-				b.Error(ErrSyscallError)
-			}
-			var user string
-			for num > 0 {
-				r := new(auth.Auth)
-				if err := pbqp.Read(conn, r); err != nil {
-					b.Error(err)
-				}
-				res := new(auth.Result)
-				res.Pass = false
-				if u, err := b.Auth(r, res); err != nil {
-					b.Warn(err)
-				} else if res.Pass {
-					user = u
-				}
-				if err := pbqp.Write(conn, res); err != nil {
-					b.Error(err)
-				}
-				if res.Pass {
-					break
-				}
-				num--
-			}
-			if num == 0 {
-				conn.Close()
-				return
-			}
+	return nil
+}
 
-			// TODO: SMUX 多路复用
-			s := b.NewSession(func(s *Session) {
-				s.user = user
-				s.uuid = uuid.NewV4().String()
-				b.Info(fmt.Sprintf("Session[UUID=%s] Created", s.uuid))
-			})
-			cfg := rlCFGBuilder(s)
-			fn := rlHandlerBuilder(s)
-			rl, err := readline.HandleConn(*cfg, conn)
-			if err != nil {
-				conn.Close()
-				b.Error(err)
-			}
-			fn(rl)
-			conn.Close()
-		}()
+func (b *Base) Accept(conn net.Conn) {
+	defer glog.StopPanic()
+	num, ok := b.Syscall(SignLoginRetryTimes).(int)
+	if !ok {
+		b.Error(ErrSyscallError)
 	}
+	var user string
+	for num > 0 {
+		r := new(auth.Auth)
+		if err := pbqp.Read(conn, r); err != nil {
+			b.Error(err)
+		}
+		res := new(auth.Result)
+		res.Pass = false
+		if u, err := b.Auth(r, res); err != nil {
+			b.Warn(err)
+		} else if res.Pass {
+			user = u
+		}
+		if err := pbqp.Write(conn, res); err != nil {
+			b.Error(err)
+		}
+		if res.Pass {
+			break
+		}
+		num--
+	}
+	if num == 0 {
+		conn.Close()
+		return
+	}
+
+	s := b.NewSession(func(s *Session) {
+		s.user = user
+		s.uuid = uuid.NewV4().String()
+		b.Info(fmt.Sprintf("Session[UUID=%s] Created", s.uuid))
+	})
+	cfg := rlCFGBuilder(s)
+	fn := rlHandlerBuilder(s)
+	rl, err := readline.HandleConn(*cfg, conn)
+	if err != nil {
+		conn.Close()
+		b.Error(err)
+	}
+	fn(rl)
+	conn.Close()
 }

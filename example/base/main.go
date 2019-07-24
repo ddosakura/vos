@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"os/signal"
 
 	"github.com/ddosakura/vos"
 	"github.com/ddosakura/vos/proto/auth"
@@ -42,9 +43,33 @@ func main() {
 		}
 		return "", nil
 	}
+	if err := o.Start(); err != nil {
+		o.Error(err)
+	}
+
 	l, err := net.Listen("unix", os.Args[1])
 	if err != nil {
 		o.Error(err)
 	}
-	o.Run(l)
+	defer func() {
+		os.Remove(os.Args[1])
+	}()
+	go func() {
+		stop := make(chan os.Signal)
+		signal.Notify(stop, os.Interrupt)
+		select {
+		case <-stop:
+			o.Info("Existing ...")
+			os.Remove(os.Args[1])
+			os.Exit(0)
+		}
+	}()
+
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			o.Error(err)
+		}
+		go o.Accept(conn)
+	}
 }

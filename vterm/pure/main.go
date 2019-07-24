@@ -27,7 +27,6 @@ func main() {
 		panic(err)
 	}
 
-	// TODO: SMUX 多路复用
 	cli, err := readline.NewRemoteCli(conn)
 	if err != nil {
 		panic(err)
